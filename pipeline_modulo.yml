@@ -1,0 +1,55 @@
+---
+# React
+version: v1
+node_type: k8s-nodejs6
+clean_workspace: true
+
+stages:
+
+  - name: Sonar Scan
+    module: sonar/scan
+    options:
+      project_name: maquina_de_combate
+      exclude: node_modules/*******,Jenkinsfile,Dockerfile
+      
+  - name: Sonar Quality Gate Check
+    module: sonar/qualitygate
+    options:
+      branch_config:
+        master:
+          fail: true
+          notification:
+          - type: email
+            options:
+              destination: rafaelcardoso.pr@gmail.com
+        default:
+          fail: false
+          notification:
+          - type: email
+            options:
+              destination: rafaelcardoso.pr@gmail.com
+              
+  - name: Build (React)
+    module: shell/exec
+    options:
+      command_per_branch:
+        master:  ./build.sh
+        default: /bin/bash build.sh hml
+
+  - name: Package (Docker)
+    module: docker/build
+    options:
+      image_name_prefix: webfv
+      image_name_suffix_branch: true
+    reference_name: docker_image
+
+  - name: Deploy
+    module: kubernetes/rc/rollingupdate
+    options:
+      cluster_name_per_branch:
+        dev: aws-dev
+        hml: aws-hml
+        master: aws-prod
+      namespace: iron_man
+      replication_controller: tony_stark
+      tag_reference: docker_image.tag
